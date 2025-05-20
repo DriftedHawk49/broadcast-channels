@@ -7,15 +7,16 @@ import (
 )
 
 type BroadcastInterface[T any] interface {
-	/*Id is returned for getting listeners*/
+	/*Id is returned for getting listeners, */
 	Subscribe() string
 	/*
 		This closes broadcast channels, effectively closing all listeners as well.
 		Make sure you are consuming listeners after checking their aliveness.
+		After closure of broadcast channel, object cannot be used again.
 	*/
 	Close()
 	/*
-		Detaches a listener identified by id. non existent id is a no-op.
+		Detaches a listener identified by id. non existent id or closed channel is a no-op.
 	*/
 	Unsubscribe(id string)
 	/*
@@ -24,7 +25,7 @@ type BroadcastInterface[T any] interface {
 	Broadcast(T)
 	/*
 		Get Listener by id. id is generated at the time of subscription.
-		in case id does not exist, this will return a nil channel.
+		in case id does not exist, or Close has been called on broadcast channel, this will return a nil channel.
 		Note : checking for nil-ness is important, as it will block forever if read from, unchecked.
 	*/
 	Listener(id string) <-chan T
@@ -38,6 +39,9 @@ type broadcastChannel[T any] struct {
 
 // Use Id returned by this function to get particular listener
 func (b *broadcastChannel[T]) Subscribe() string {
+	if b.isClosed {
+		return ""
+	}
 	id := uuid.New().String()
 	b.chans.Store(id, make(chan T, b.buffer))
 	return id
@@ -69,6 +73,10 @@ func (b *broadcastChannel[T]) Unsubscribe(id string) {
 }
 
 func (b *broadcastChannel[T]) Broadcast(data T) {
+
+	if b.isClosed {
+		return
+	}
 
 	b.chans.Range(func(key, value any) bool {
 		go func() {
