@@ -6,6 +6,10 @@ import (
 	"github.com/google/uuid"
 )
 
+/*
+More functions for support in future :
+1. Reset : Removes all listeners, probably for fresh re-use
+*/
 type BroadcastInterface[T any] interface {
 	/*Id is returned for getting listeners, */
 	Subscribe() string
