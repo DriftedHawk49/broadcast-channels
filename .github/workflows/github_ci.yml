@@ -32,10 +32,11 @@ jobs:
           go-version: 1.24
       # Runs a single command using the runners shell
       - name: print current working directory
-        run: echo pwd
+        run: pwd
 
       # Runs a set of commands using the runners shell
       - name: build go project for compilation issues
+        working-directory: $GITHUB_WORKSPACE
         run: go build .
   test:
     # The type of runner that the job will run on
@@ -57,5 +58,6 @@ jobs:
 
       # Runs a set of commands using the runners shell
       - name: build go project for compilation issues
+        working-directory: $GITHUB_WORKSPACE
         run: go test .
 
