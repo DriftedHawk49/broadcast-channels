@@ -29,7 +29,7 @@ jobs:
         uses: actions/setup-go@v5.5.0
         with:
           # The Go version to download (if necessary) and use. Supports semver spec and ranges. Be sure to enclose this option in single quotation marks.
-          go-version: 24
+          go-version: 1.24
       # Runs a single command using the runners shell
       - name: print current working directory
         run: echo pwd
@@ -50,7 +50,7 @@ jobs:
         uses: actions/setup-go@v5.5.0
         with:
           # The Go version to download (if necessary) and use. Supports semver spec and ranges. Be sure to enclose this option in single quotation marks.
-          go-version: 24
+          go-version: 1.24
       # Runs a single command using the runners shell
       - name: print current working directory
         run: echo pwd
