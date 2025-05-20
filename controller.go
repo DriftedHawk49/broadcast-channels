@@ -11,7 +11,7 @@ type BroadcastInterface[T any] interface {
 	Subscribe() string
 	/*
 		This closes broadcast channels, effectively closing all listeners as well.
-		Make sure you are consuming listeners after checking their aliveness
+		Make sure you are consuming listeners after checking their aliveness.
 	*/
 	Close()
 	/*
@@ -31,8 +31,9 @@ type BroadcastInterface[T any] interface {
 }
 
 type broadcastChannel[T any] struct {
-	chans  sync.Map // map that will contain all the channels who have subscribed to this channel
-	buffer int      // buffer for channels
+	chans    sync.Map // map that will contain all the channels who have subscribed to this channel
+	buffer   int      // buffer for channels
+	isClosed bool     // tracks the request of closing of broadcast channel
 }
 
 // Use Id returned by this function to get particular listener
@@ -44,11 +45,18 @@ func (b *broadcastChannel[T]) Subscribe() string {
 
 // Closes the channel
 func (b *broadcastChannel[T]) Close() {
+
+	if b.isClosed {
+		return
+	}
+
 	b.chans.Range(func(key, value any) bool {
 		c := value.(chan T)
 		close(c)
 		return true
 	})
+
+	b.isClosed = true
 }
 
 func (b *broadcastChannel[T]) Unsubscribe(id string) {
@@ -64,8 +72,10 @@ func (b *broadcastChannel[T]) Broadcast(data T) {
 
 	b.chans.Range(func(key, value any) bool {
 		go func() {
-			c := value.(chan T)
-			c <- data
+			c, ok := value.(chan T)
+			if ok {
+				c <- data
+			}
 		}()
 		return true
 	})
