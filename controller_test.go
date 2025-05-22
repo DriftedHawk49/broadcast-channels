@@ -19,22 +19,21 @@ Testcases need to be written for following cases :
 
 */
 
-func TestThatRateOfBroadcastingIsMoreThanRateOfReceiving(t *testing.T) {
+func TestThatRateOfBroadcastingIsMoreThanRateOfReceivingAndChannelIsClosedInBetween(t *testing.T) {
 	bc := broadcastchannels.NewBroadcastChannel[int]()
-	_ = bc.Subscribe()
-	id2 := bc.Subscribe()
+	id2, _ := bc.Subscribe()
 
 	result := make([]int, 0)
 
 	go func() {
-		l := bc.Listener(id2)
-		if l == nil {
+		l, err := bc.Listener(id2)
+		if l == nil || err != nil {
 			return
 		}
 
 		for v := range l {
 			fmt.Println(v)
-			time.Sleep(1 * time.Second)
+			time.Sleep(2 * time.Second)
 			result = append(result, v)
 		}
 
@@ -42,15 +41,12 @@ func TestThatRateOfBroadcastingIsMoreThanRateOfReceiving(t *testing.T) {
 	}()
 
 	for i := range 10 {
-		bc.Broadcast(i)
+		go bc.Broadcast(i)
 	}
 
-	fmt.Println("sleeping now")
-	time.Sleep(15 * time.Second)
-	defer bc.Close()
-	fmt.Println("ending primary thread")
-
-	assert.ElementsMatch(t, result, []int{0, 1, 2, 3, 4, 5, 6, 7, 8, 9}, "elements should be equal")
+	time.Sleep(3 * time.Second)
+	bc.Close()
+	assert.NotEmpty(t, result, "array should not be empty")
 
 }
 
@@ -66,9 +62,19 @@ func TestThatMultipleGoroutinesRecieveMessage(t *testing.T) {
 
 	bc := broadcastchannels.NewBroadcastChannel[int]()
 	for range 10 {
-		id := bc.Subscribe()
+		id, _ := bc.Subscribe()
 		go func() {
-			k := <-bc.Listener(id)
+			ch, err := bc.Listener(id)
+			if err != nil {
+				fmt.Println(err.Error())
+				return
+			}
+
+			k, ok := <-ch
+			if !ok {
+				fmt.Println("closed channel")
+				return
+			}
 			result = append(result, k)
 			fmt.Println("i am done", id)
 		}()
@@ -86,11 +92,16 @@ func TestThatProcessCanUnsubscribeFromBroadcastChannel(t *testing.T) {
 	bc := broadcastchannels.NewBroadcastChannel[int]()
 	result := make([]int, 0, 2)
 
-	id1 := bc.Subscribe()
-	id2 := bc.Subscribe()
+	id1, _ := bc.Subscribe()
+	id2, _ := bc.Subscribe()
 
 	go func() {
-		vm, ok := <-bc.Listener(id1)
+		ch, err := bc.Listener(id1)
+		if err != nil {
+			fmt.Println(err.Error())
+			return
+		}
+		vm, ok := <-ch
 		fmt.Println(vm, ok, id1)
 
 		result = append(result, 7)
@@ -99,7 +110,11 @@ func TestThatProcessCanUnsubscribeFromBroadcastChannel(t *testing.T) {
 	go func() {
 		time.Sleep(2 * time.Second)
 		fmt.Println("started second")
-		l := bc.Listener(id2)
+		l, err := bc.Listener(id2)
+		if err != nil {
+			fmt.Println(err.Error())
+			return
+		}
 		if l == nil {
 			fmt.Println("nil channel")
 		}
@@ -127,11 +142,11 @@ func TestThatProcessCanUnsubscribeFromBroadcastChannel(t *testing.T) {
 func TestThatClosingBroadcastIntimatesListeners(t *testing.T) {
 	bc := broadcastchannels.NewBroadcastChannel[int]()
 
-	id1 := bc.Subscribe()
-	id2 := bc.Subscribe()
+	id1, _ := bc.Subscribe()
+	id2, _ := bc.Subscribe()
 
 	go func() {
-		l := bc.Listener(id1)
+		l, _ := bc.Listener(id1)
 		if l == nil {
 			return
 		}
@@ -144,7 +159,7 @@ func TestThatClosingBroadcastIntimatesListeners(t *testing.T) {
 	}()
 
 	go func() {
-		l := bc.Listener(id2)
+		l, _ := bc.Listener(id2)
 		if l == nil {
 			return
 		}
