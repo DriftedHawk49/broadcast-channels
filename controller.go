@@ -96,7 +96,8 @@ func (b *broadcastChannel[T]) Close() {
 			c := value.(*internalListener[T])
 			if c != nil {
 				// inform for graceful shutdown
-				go func() { c.doneChan <- struct{}{}; close(c.doneChan) }()
+				c.doneChan <- struct{}{}
+				defer close(c.doneChan)
 				// close the data channel
 				close(c.dataChan)
 			}
