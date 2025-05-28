@@ -25,6 +25,8 @@ ADVANCED TEST CASES
 	3. Closing of channel when broadcast is triggered after close command.
 	4. rate of broadcast is more than rate of consumption
 	5. closing of channel when doneChan is not utilised
+	6. Broadcast when there are no subscriptions
+	7. Closing a channel from multiple go routines
 */
 
 // BASIC TEST CASES
@@ -71,6 +73,98 @@ func TestThatSubscriptionWorks(t *testing.T) {
 
 	assert.ElementsMatch(t, []int{2}, result, "elements must match as a sign that subscription worked")
 }
+
+func TestThatUnsubscribeWorks(t *testing.T) {
+	bc := broadcastchannels.NewBroadcastChannel[int]()
+
+	result := make([]int, 0)
+
+	_, l1, err := bc.Subscribe()
+	assert.Nil(t, err, "error should be nil")
+
+	id2, l2, err := bc.Subscribe()
+	assert.Nil(t, err, "error should be nil")
+
+	go func() {
+		for {
+			select {
+			case v := <-l1.DataChan:
+				result = append(result, v)
+			case <-l1.DoneChan:
+				return
+			}
+		}
+	}()
+
+	go func() {
+		for {
+			select {
+			case v := <-l2.DataChan:
+				result = append(result, v)
+			case <-l2.DoneChan:
+				return
+			}
+		}
+	}()
+
+	time.Sleep(1 * time.Second)
+	err = bc.Broadcast(3)
+	assert.Nil(t, err, "error should be nil")
+	time.Sleep(1 * time.Second)
+	bc.Unsubscribe(id2)
+	bc.Broadcast(10)
+
+	time.Sleep(2 * time.Second)
+	assert.ElementsMatch(t, []int{3, 3, 10}, result, "elements should match")
+
+}
+
+func TestThatClosingOfChannelWorks(t *testing.T) {
+	bc := broadcastchannels.NewBroadcastChannel[int]()
+	result := make([]int, 0)
+
+	_, l1, err := bc.Subscribe()
+	assert.Nil(t, err, "error should be nil")
+
+	_, l2, err := bc.Subscribe()
+	assert.Nil(t, err, "error should be nil")
+
+	go func() {
+		for {
+			select {
+			case v := <-l1.DataChan:
+				fmt.Println(v)
+			case <-l1.DoneChan:
+				result = append(result, -1)
+				return
+			}
+		}
+	}()
+
+	go func() {
+		for {
+			select {
+			case v := <-l2.DataChan:
+				fmt.Println(v)
+			case <-l2.DoneChan:
+				result = append(result, -1)
+				return
+			}
+		}
+	}()
+
+	time.Sleep(1 * time.Second)
+
+	bc.Close()
+	time.Sleep(2 * time.Second)
+
+	assert.ElementsMatch(t, []int{-1, -1}, result, "elements should match")
+
+}
+
+// ADVANCED TEST CASES
+
+// func TestThat
 
 // func TestThatRateOfBroadcastingIsMoreThanRateOfReceivingAndChannelIsClosedInBetween(t *testing.T) {
 // 	bc := broadcastchannels.NewBroadcastChannel[int]()
