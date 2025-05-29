@@ -59,12 +59,11 @@ Listner which
 */
 func (b *broadcastChannel[T]) Subscribe() (string, *Listener[T], error) {
 
+	b.closeLock.Lock()
+	defer b.closeLock.Unlock()
 	if b.isClosed {
 		return "", nil, errors.New(constants.MessageClosedChannel)
 	}
-
-	b.closeLock.Lock()
-	defer b.closeLock.Unlock()
 
 	id := uuid.New().String()
 
